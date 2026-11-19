@@ -1,0 +1,28 @@
+# 构建产物
+/build/
+/app/build/
+**/build/
+
+# Gradle
+.gradle/
+.kotlin/
+
+# 本地配置（含 SDK 路径、签名信息）
+local.properties
+*.jks
+*.keystore
+
+# IDE
+/.idea/
+*.iml
+.DS_Store
+Thumbs.db
+
+# 导出的安装包
+*.apk
+*.aab
+
+# 抓包/调试产物
+/captures/
+.externalNativeBuild/
+.cxx/
