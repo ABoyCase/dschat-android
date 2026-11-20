@@ -196,6 +196,24 @@ class ChatController(
     suspend fun search(query: String): List<SearchHit> =
         withContext(Dispatchers.IO) { store.search(query) }
 
+    /**
+     * 导出用的一份快照。当前会话从内存取（可能比磁盘上还新），
+     * 其他会话从存档读。
+     */
+    suspend fun conversationForExport(id: String): Conversation? {
+        if (id == currentId && messages.isNotEmpty()) {
+            return Conversation(
+                id = currentId,
+                title = currentTitle,
+                createdAt = createdAt,
+                updatedAt = System.currentTimeMillis(),
+                messages = messages.map { it.copy(streaming = false) },
+                totals = totals
+            )
+        }
+        return withContext(Dispatchers.IO) { store.load(id) }
+    }
+
     private fun freshSession() {
         currentId = UUID.randomUUID().toString()
         currentTitle = "新对话"

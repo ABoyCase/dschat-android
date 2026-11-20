@@ -38,6 +38,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
@@ -54,12 +55,16 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import com.example.ai.data.ConversationMeta
+import com.example.ai.data.ConversationExporter
 import com.example.ai.data.Efforts
 import com.example.ai.data.Models
 import com.example.ai.data.Pricing
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun ChatScreen(ctrl: ChatController) {
@@ -77,6 +82,7 @@ fun ChatScreen(ctrl: ChatController) {
     var thinkingOpen by remember { mutableStateOf<Set<Long>>(emptySet()) }
 
     val ctx = androidx.compose.ui.platform.LocalContext.current
+    val uiScope = rememberCoroutineScope()
 
     BackHandler(enabled = drawerOpen) { drawerOpen = false }
     BackHandler(enabled = selectMode) {
@@ -276,6 +282,31 @@ fun ChatScreen(ctrl: ChatController) {
                     },
                     onDelete = { meta -> pendingDelete = meta },
                     onRename = { meta, title -> ctrl.renameChat(meta.id, title) },
+                    onExport = { meta ->
+                        uiScope.launch {
+                            val conv = ctrl.conversationForExport(meta.id)
+                            if (conv == null) {
+                                Toast.makeText(ctx, "读不到这段对话", Toast.LENGTH_SHORT).show()
+                                return@launch
+                            }
+                            val text = ConversationExporter.buildText(conv)
+                            val name = ConversationExporter.fileNameOf(conv.title)
+
+                            val result = withContext(Dispatchers.IO) {
+                                runCatching { ConversationExporter.save(ctx, name, text) }
+                            }
+                            result.onSuccess { where ->
+                                Toast.makeText(ctx, "已导出：$where", Toast.LENGTH_LONG).show()
+                                drawerOpen = false
+                            }.onFailure { e ->
+                                Toast.makeText(
+                                    ctx,
+                                    "导出失败：${e.message ?: e.javaClass.simpleName}",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        }
+                    },
                     onSearch = { q -> ctrl.search(q) }
                 )
             }

@@ -58,6 +58,7 @@ fun ChatDrawer(
     onOpen: (String) -> Unit,
     onDelete: (ConversationMeta) -> Unit,
     onRename: (ConversationMeta, String) -> Unit,
+    onExport: (ConversationMeta) -> Unit,
     onSearch: suspend (String) -> List<SearchHit>
 ) {
     var query by remember { mutableStateOf("") }
@@ -191,7 +192,8 @@ fun ChatDrawer(
                             active = c.id == currentId,
                             onClick = { onOpen(c.id) },
                             onRenameClick = { renaming = c },
-                            onDeleteClick = { onDelete(c) }
+                            onDeleteClick = { onDelete(c) },
+                            onExportClick = { onExport(c) }
                         )
                     }
                 }
@@ -285,7 +287,8 @@ private fun ConversationItem(
     active: Boolean,
     onClick: () -> Unit,
     onRenameClick: () -> Unit,
-    onDeleteClick: () -> Unit
+    onDeleteClick: () -> Unit,
+    onExportClick: () -> Unit
 ) {
     var menuOpen by remember(meta.id) { mutableStateOf(false) }
 
@@ -343,6 +346,13 @@ private fun ConversationItem(
                 expanded = menuOpen,
                 onDismissRequest = { menuOpen = false }
             ) {
+                DropdownMenuItem(
+                    text = { Text("导出为 TXT", color = ChatColors.Txt, fontSize = 14.sp) },
+                    onClick = {
+                        menuOpen = false
+                        onExportClick()
+                    }
+                )
                 DropdownMenuItem(
                     text = { Text("重命名", color = ChatColors.Txt, fontSize = 14.sp) },
                     onClick = {
