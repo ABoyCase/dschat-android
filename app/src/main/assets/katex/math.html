@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<link rel="stylesheet" href="katex.min.css">
+<style>
+  * { -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0;
+    background: transparent;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  body {
+    color: var(--fg, #E6EDF7);
+    font-family: -apple-system, "Noto Sans CJK SC", "Source Han Sans SC", "PingFang SC", sans-serif;
+    font-size: var(--fs, 16px);
+    line-height: var(--lh, 26px);
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+  #root > *:first-child { margin-top: 0; }
+  #root > *:last-child { margin-bottom: 0; }
+  p { margin: 0 0 10px; }
+  h1, h2, h3, h4, h5 { margin: 15px 0 8px; font-weight: 600; line-height: 1.4; }
+  h1 { font-size: 1.28em; }
+  h2 { font-size: 1.18em; }
+  h3 { font-size: 1.08em; }
+  h4, h5 { font-size: 1em; }
+  ul, ol { margin: 0 0 10px; padding-left: 22px; }
+  li { margin: 3px 0; }
+  li > p { margin: 0; }
+  strong { font-weight: 600; }
+  em { font-style: italic; }
+  a { color: var(--accent, #7B93FF); text-decoration: none; }
+  hr { border: 0; border-top: 1px solid var(--line, #242C3A); margin: 14px 0; }
+  blockquote {
+    margin: 10px 0;
+    padding: 2px 0 2px 12px;
+    border-left: 3px solid var(--line, #242C3A);
+    color: var(--dim, #8B98AB);
+  }
+  code {
+    font-family: ui-monospace, "Roboto Mono", Menlo, monospace;
+    font-size: 0.9em;
+    background: var(--panel2, #1B2230);
+    color: var(--codefg, #FFC98A);
+    padding: 1.5px 4px;
+    border-radius: 4px;
+  }
+  pre {
+    background: var(--codebg, #0B0F16);
+    border: 1px solid var(--line, #242C3A);
+    border-radius: 8px;
+    padding: 10px 12px;
+    overflow-x: auto;
+    margin: 0 0 10px;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    color: var(--codefg, #FFC98A);
+    font-size: 0.88em;
+    line-height: 1.5;
+  }
+  table { border-collapse: collapse; width: 100%; margin: 0 0 10px; font-size: 0.94em; }
+  th, td { border: 1px solid var(--line, #242C3A); padding: 6px 8px; text-align: left; }
+  th { background: var(--panel2, #1B2230); font-weight: 600; }
+  img { max-width: 100%; height: auto; }
+
+  /* 行内公式：跟文字垂直居中对齐 */
+  .mathph { display: inline-block; vertical-align: middle; }
+  /* 块级公式：独占一行、居中、超宽自己横向滚动 */
+  .mathblock {
+    display: block;
+    text-align: center;
+    margin: 10px 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .katex { font-size: 1.04em; }
+  .katex-error { color: var(--dim, #8B98AB); font-size: 0.9em; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="katex.min.js"></script>
+<script src="marked.min.js"></script>
+<script>
+(function () {
+  var lastHeight = -1;
+
+  function postHeight() {
+    var h = Math.ceil(document.body.getBoundingClientRect().height);
+    if (h > 0 && h !== lastHeight) {
+      lastHeight = h;
+      if (window.AndroidBridge && window.AndroidBridge.onHeight) {
+        window.AndroidBridge.onHeight(h);
+      }
+    }
+  }
+
+  /** base64 → UTF-8 字符串，中文不会乱码 */
+  function decodeBase64(b64) {
+    var bin = atob(b64);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder('utf-8').decode(bytes);
+  }
+
+  /**
+   * 关键一步：把公式和代码内容抽出来换成占位符。
+   *
+   * 不抽的话 marked 会把 \( 当成 markdown 的转义符，输出成 (，
+   * KaTeX 就再也找不到公式了 —— 这是踩过的坑。
+   *
+   * 代码块不能整块替换，否则 marked 就不再包 <pre><code> 了。
+   * 只替换内容、保留围栏，渲染完再把内容填回去。
+   */
+  function esc(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function preprocess(src) {
+    var blocks = [];
+    var maths = [];
+
+    // 围栏代码块：保留 ```lang 和收尾，只把里面的内容抽走
+    src = src.replace(/```([^\n`]*)\n([\s\S]*?)```/g, function (_, lang, body) {
+      var i = blocks.length;
+      blocks.push(esc(body));
+      return '```' + lang + '\n@@B' + i + '@@\n```';
+    });
+
+    // 行内代码
+    src = src.replace(/`([^`\n]+)`/g, function (_, body) {
+      var i = blocks.length;
+      blocks.push(esc(body));
+      return '`@@B' + i + '@@`';
+    });
+
+    function stashMath(tex, display) {
+      var i = maths.length;
+      maths.push({ tex: tex, display: display });
+      return '@@M' + i + '@@';
+    }
+
+    // 块级优先，否则 $$ 会被 $ 的规则先吃掉一半
+    src = src.replace(/\$\$([\s\S]+?)\$\$/g, function (_, t) { return stashMath(t, true); });
+    src = src.replace(/\\\[([\s\S]+?)\\\]/g, function (_, t) { return stashMath(t, true); });
+    src = src.replace(/\\\(([\s\S]+?)\\\)/g, function (_, t) { return stashMath(t, false); });
+    // $...$ 至少两个字符、不跨行，且前面不能是反斜杠或 $
+    // lookbehind 老版本 WebView 不支持，构造失败就退回简化版
+    var dollarRe;
+    try {
+      dollarRe = new RegExp('(?<![\\\\$])\\$([^$\\n]{2,}?)\\$(?!\\$)', 'g');
+    } catch (e) {
+      dollarRe = /\$([^$\n]{2,}?)\$/g;
+    }
+    src = src.replace(dollarRe, function (_, t) {
+      return stashMath(t, false);
+    });
+
+    return { src: src, blocks: blocks, maths: maths };
+  }
+
+  window.renderMessage = function (b64, themeJson) {
+    var root = document.getElementById('root');
+    var raw = '';
+    try {
+      var theme = JSON.parse(themeJson);
+      var s = document.documentElement.style;
+      s.setProperty('--fg', theme.fg);
+      s.setProperty('--dim', theme.dim);
+      s.setProperty('--line', theme.line);
+      s.setProperty('--panel2', theme.panel2);
+      s.setProperty('--codebg', theme.codeBg);
+      s.setProperty('--codefg', theme.codeFg);
+      s.setProperty('--accent', theme.accent);
+      s.setProperty('--fs', theme.fontSize + 'px');
+      s.setProperty('--lh', theme.lineHeight + 'px');
+
+      raw = decodeBase64(b64);
+      var pre = preprocess(raw);
+
+      var html = marked.parse(pre.src, { breaks: true, gfm: true });
+
+      // 代码块原样放回（marked 已经处理过外层包裹，这里只还原是最稳的）
+      html = html.replace(/@@B(\d+)@@/g, function (_, i) {
+        return pre.blocks[+i] || '';
+      });
+
+      // 公式占位符变成挂载点
+      html = html.replace(/@@M(\d+)@@/g, function (_, i) {
+        var d = pre.maths[+i] ? pre.maths[+i].display : false;
+        return '<span class="mathph' + (d ? ' mathblock' : '') +
+               '" data-m="' + i + '"></span>';
+      });
+
+      root.innerHTML = html;
+
+      // 逐个渲染，单个公式出错不影响其他
+      pre.maths.forEach(function (item, i) {
+        var el = root.querySelector('[data-m="' + i + '"]');
+        if (!el) return;
+        try {
+          katex.render(item.tex, el, {
+            displayMode: item.display,
+            throwOnError: false,
+            strict: false,
+            trust: false
+          });
+        } catch (e) {
+          el.textContent = item.tex;
+          el.className = 'katex-error';
+        }
+      });
+    } catch (e) {
+      root.textContent = raw || '渲染失败';
+    }
+    postHeight();
+    // 字体和公式落位后尺寸还会变，补两次
+    setTimeout(postHeight, 50);
+    setTimeout(postHeight, 220);
+  };
+
+  if (window.ResizeObserver) {
+    new ResizeObserver(postHeight).observe(document.body);
+  }
+  window.addEventListener('load', postHeight);
+  window.addEventListener('resize', postHeight);
+})();
+</script>
+</body>
+</html>

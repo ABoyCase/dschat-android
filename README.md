@@ -2,7 +2,7 @@
 
 > 一个原生 Android 的 DeepSeek 客户端。直连官方 API，按官方规则实时记账，会话只存在本机。
 
-不是又一个网页套壳——没有 WebView、没有后端、没有第三方网络库。整个 App 就是 Kotlin + Jetpack Compose 写的原生界面，加上自己实现的 SSE 流式解析。
+不是又一个网页套壳——界面是 Kotlin + Jetpack Compose 原生写的，网络层自己实现 SSE 逐行解析，没有后端、没有第三方网络库。唯一用到 WebView 的地方是数学公式排版（跑 KaTeX），而且只在正文真的出现 LaTeX 时才启用。
 
 ## 为什么做这个
 
@@ -23,6 +23,7 @@
 - 思考块展开时点击复制，连思考一起复制；收起时只复制结论
 - 模型切换（Flash / Pro）、思考强度（少 / 标准 / 最深）
 - 联网搜索（Flash 支持），回复下方列出引用的来源
+- **数学公式排版**：行内和块级的 LaTeX 都能排，分式、角标、积分上下限、极限下标都是标准排版
 
 **计费**
 - 每条消息显示 token 明细与本次花费，顶栏累计整个会话的费用
@@ -41,14 +42,17 @@
 
 ## 技术栈
 
-Kotlin + Jetpack Compose + Material 3，除了 Compose 本身没有第三方依赖：
+Kotlin + Jetpack Compose + Material 3。**Gradle 层面没有引入任何第三方库**；公式排版用的是打包进 `assets` 的 KaTeX 静态资源（648KB），不是 Maven 依赖。
 
 | 层 | 做法 |
 |---|---|
 | 网络 | `HttpURLConnection` 手写 SSE 逐行解析 |
 | 存储 | 会话存 JSON 文件（一会话一文件 + 索引），设置存 SharedPreferences |
-| 渲染 | 自己写的极简 Markdown 解析（标题、列表、代码块、加粗、行内代码） |
+| 渲染 | 自己写的极简 Markdown 解析（标题、列表、代码块、加粗、行内代码）；含公式的消息交给 marked，额外支持表格 |
+| 公式 | 正文含 LaTeX 时才切到内置 WebView 跑 KaTeX，其余消息保持原生 |
 | 主题 | 深色固定，配色与桌面版保持一致 |
+
+公式那层值得说一句实现细节：markdown 会把 `\(` 当成转义符吃掉反斜杠，所以必须先把公式和代码块抽成占位符，等 markdown 渲染完再放回去，否则 KaTeX 一个公式都找不到。WebView 的高度靠网页里 `ResizeObserver` 回调给原生，不用轮询。
 
 ## 构建
 
@@ -72,9 +76,10 @@ DeepSeek 官方在 2026 年 11 月开源了 [chat-demo](https://github.com/deeps
 | 形态 | 原生 Android 应用 | 网页 / 加到主屏的 PWA |
 | 计费 | 每条消息实时算钱，单价可自定义 | 无 |
 | 存储 | 应用私有目录的 JSON 文件 | 浏览器 localStorage / IndexedDB |
-| 附件、语音、公式、Mermaid | 不支持 | 支持 |
+| 数学公式 | 支持（KaTeX，和官方 App 观感一致） | 支持 |
+| 附件、语音输入、Mermaid | 不支持 | 支持 |
 
-要那些完整能力，用官方 chat-demo。只想要一个轻快、随时知道花了多少钱的手机客户端，用这个。
+要附件和语音，用官方 chat-demo。只想要一个轻快、随时知道花了多少钱的手机客户端，用这个。
 
 ## 已知限制
 
@@ -82,6 +87,8 @@ DeepSeek 官方在 2026 年 11 月开源了 [chat-demo](https://github.com/deeps
 - 对话不跨设备同步（这是设计选择，不是缺陷）
 - 切到后台时正在生成的回复会中断（Android 后台网络限制）
 - 搜索是遍历本地文件，会话堆到几百条会变慢
+- **流式输出期间公式显示 LaTeX 源码**，答完才排版——半截的 `\frac{a}{` 任何引擎都排不了
+- 每条含公式的消息占一个 WebView，这类消息堆到几十条时内存会明显上去
 
 ## 免责声明
 

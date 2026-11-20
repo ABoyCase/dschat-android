@@ -40,6 +40,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -92,17 +93,32 @@ fun ChatScreen(ctrl: ChatController) {
         if (!ctrl.hasKey) showKey = true
     }
 
-    // 内容变长就跟着滚到底；用户自己往上翻了就别打扰他
+    // 流式输出自动跟随：盯的是「最后一条消息的内容长度」，不是内容总高度。
+    // 高度变化常常滞后于文字变化，等它变的时候滚动已经晚了；等一帧让布局落定再滚才跟得住。
     LaunchedEffect(Unit) {
-        var prevMax = 0
-        snapshotFlow { scrollState.maxValue }.collect { max ->
-            if (max > prevMax && follow) scrollState.scrollTo(max)
-            prevMax = max
+        snapshotFlow {
+            val last = ctrl.messages.lastOrNull()
+            Triple(
+                ctrl.messages.size,
+                last?.content?.length ?: 0,
+                last?.thinking?.length ?: 0
+            )
+        }.collect {
+            if (!follow) return@collect
+            // 先等这一帧完成布局，maxValue 才是新的
+            withFrameNanos { }
+            if (scrollState.maxValue > 0) {
+                scrollState.scrollTo(scrollState.maxValue)
+            }
         }
     }
+
+    // 手指一碰就暂停跟随（不然边看历史边被拽回底部）；松手时回到底部附近就恢复
     LaunchedEffect(Unit) {
         snapshotFlow { scrollState.isScrollInProgress }.collect { dragging ->
-            if (!dragging) {
+            if (dragging) {
+                follow = false
+            } else {
                 follow = scrollState.maxValue - scrollState.value < 160
             }
         }
@@ -170,7 +186,8 @@ fun ChatScreen(ctrl: ChatController) {
                                     }
                                 )
                             }
-                            Spacer(Modifier.height(4.dp))
+                            // 底部留一点空，最新一行不至于贴着输入框
+                            Spacer(Modifier.height(20.dp))
                         }
                     }
                 }

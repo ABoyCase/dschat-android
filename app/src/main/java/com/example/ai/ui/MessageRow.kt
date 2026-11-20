@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -71,6 +72,11 @@ fun MessageRow(
     val maxW = screenW * 0.88f
     val isUser = msg.role == "user"
     val ctx = LocalContext.current
+
+    // WebView 里的字号要跟系统字体缩放走，所以按 sp→dp 换算后传进去
+    val density = LocalDensity.current
+    val bodyFontDp = with(density) { BodyStyle.fontSize.toDp().value }
+    val bodyLineDp = with(density) { BodyStyle.lineHeight.toDp().value }
 
     Row(
         modifier = Modifier
@@ -150,7 +156,17 @@ fun MessageRow(
                 }
 
                 if (msg.content.isNotEmpty()) {
-                    MarkdownBody(text = msg.content, streaming = msg.streaming)
+                    // 带公式且已生成完的，交给 WebView 里的 KaTeX 排版；
+                    // 流式中的半截 LaTeX 渲染不了，先用原生文本顶着
+                    if (!msg.streaming && containsMath(msg.content)) {
+                        MathWebView(
+                            content = msg.content,
+                            fontSizeSp = bodyFontDp,
+                            lineHeightSp = bodyLineDp
+                        )
+                    } else {
+                        MarkdownBody(text = msg.content, streaming = msg.streaming)
+                    }
                 }
 
                 if (msg.error != null && !isUser) {
