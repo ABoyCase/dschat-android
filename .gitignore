@@ -26,3 +26,15 @@ Thumbs.db
 /captures/
 .externalNativeBuild/
 .cxx/
+
+# 密钥/敏感文件（防止 API Key 进入版本库）
+.env
+.env.*
+secrets.properties
+keystore.properties
+signing.properties
+*.pem
+*.p12
+*.pfx
+*.key
+**/api_keys.xml

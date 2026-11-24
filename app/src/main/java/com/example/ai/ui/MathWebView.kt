@@ -51,15 +51,27 @@ fun MathWebView(
         Base64.encodeToString(content.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
     }
 
-    val themeJson = remember(fontSizeSp, lineHeightSp) {
+    // 先把主题色提到 composable 作用域里，remember 的 lambda 里读不到 CompositionLocal
+    val fgColor = ChatColors.Txt
+    val dimColor = ChatColors.Dim
+    val lineColor = ChatColors.Line
+    val panel2Color = ChatColors.Panel2
+    val codeBgColor = ChatColors.CodeBg
+    val codeFgColor = ChatColors.CodeFg
+    val accentColor = ChatColors.Accent2
+
+    val themeJson = remember(
+        fontSizeSp, lineHeightSp,
+        fgColor, dimColor, lineColor, panel2Color, codeBgColor, codeFgColor, accentColor
+    ) {
         JSONObject().apply {
-            put("fg", hex(ChatColors.Txt))
-            put("dim", hex(ChatColors.Dim))
-            put("line", hex(ChatColors.Line))
-            put("panel2", hex(ChatColors.Panel2))
-            put("codeBg", hex(ChatColors.CodeBg))
-            put("codeFg", hex(ChatColors.CodeFg))
-            put("accent", hex(ChatColors.Accent2))
+            put("fg", hex(fgColor))
+            put("dim", hex(dimColor))
+            put("line", hex(lineColor))
+            put("panel2", hex(panel2Color))
+            put("codeBg", hex(codeBgColor))
+            put("codeFg", hex(codeFgColor))
+            put("accent", hex(accentColor))
             put("fontSize", fontSizeSp)
             put("lineHeight", lineHeightSp)
         }.toString()

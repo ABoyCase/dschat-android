@@ -68,6 +68,10 @@ class ChatController(
     var web by mutableStateOf(prefs.web)
         private set
 
+    /** 外观：dark / light / system */
+    var theme by mutableStateOf(prefs.theme)
+        private set
+
     /** 计费规则，改完立刻影响后续每一轮的计算 */
     var billing by mutableStateOf(prefs.billing)
         private set
@@ -296,6 +300,12 @@ class ChatController(
     fun saveBilling(cfg: BillingConfig) {
         billing = cfg
         prefs.billing = cfg
+    }
+
+    fun changeTheme(mode: String) {
+        if (mode == theme) return
+        theme = mode
+        prefs.theme = mode
     }
 
     fun saveKey(key: String) {

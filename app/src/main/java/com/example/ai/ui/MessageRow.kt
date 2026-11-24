@@ -52,10 +52,10 @@ import com.example.ai.data.Pricing
 import com.example.ai.data.Source
 import com.example.ai.data.Usage
 
+/** 正文排版常亮；颜色不能写在这里，它得跟着主题走，见调用处的 ChatColors.Txt */
 private val BodyStyle = androidx.compose.ui.text.TextStyle(
     fontSize = 16.sp,
-    lineHeight = 26.sp,
-    color = ChatColors.Txt
+    lineHeight = 26.sp
 )
 
 @Composable
@@ -343,7 +343,7 @@ internal fun copyText(ctx: Context, text: String) {    try {
 @Composable
 private fun MarkdownBody(text: String, streaming: Boolean) {
     if (streaming) {
-        Text(text = text, style = BodyStyle)
+        Text(text = text, style = BodyStyle, color = ChatColors.Txt)
         return
     }
 
@@ -366,7 +366,8 @@ private fun MarkdownBody(text: String, streaming: Boolean) {
 
                 is MdBlock.Para -> Text(
                     text = inlineMd(block.text),
-                    style = BodyStyle
+                    style = BodyStyle,
+                    color = ChatColors.Txt
                 )
 
                 is MdBlock.Quote -> Row {
@@ -423,7 +424,7 @@ private fun CodeBlock(code: String) {
             fontFamily = FontFamily.Monospace,
             fontSize = 13.sp,
             lineHeight = 20.sp,
-            color = Color_CodeText,
+            color = ChatColors.CodeTxt,
             softWrap = false,
             modifier = Modifier
                 .horizontalScroll(rememberScrollState())
@@ -431,8 +432,6 @@ private fun CodeBlock(code: String) {
         )
     }
 }
-
-private val Color_CodeText = androidx.compose.ui.graphics.Color(0xFFD6E2F5)
 
 /** 本轮用量与费用 */
 @Composable

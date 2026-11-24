@@ -1,5 +1,6 @@
 package com.example.ai.ui
 
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
@@ -113,12 +114,13 @@ private val INLINE = Regex(
         "|(?<![*\\w])\\*([^*\\n]+?)\\*(?![*\\w])"      // *斜体*
 )
 
-/** 行内样式：粗体 / 行内代码 / 链接 / 斜体 */
+/** 行内样式：粗体 / 行内代码 / 链接 / 斜体。默认取当前主题色 */
+@Composable
 fun inlineMd(
     src: String,
-    codeBg: Color = Color(0xFF0B0F16),
-    codeFg: Color = Color(0xFFFFC98A),
-    linkColor: Color = Color(0xFF7B93FF)
+    codeBg: Color = ChatColors.CodeBg,
+    codeFg: Color = ChatColors.CodeFg,
+    linkColor: Color = ChatColors.Accent2
 ): AnnotatedString = buildAnnotatedString {
     var last = 0
     for (m in INLINE.findAll(src)) {

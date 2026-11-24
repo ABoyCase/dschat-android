@@ -234,17 +234,19 @@ private fun SearchBox(value: String, onChange: (String) -> Unit) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         // 放大镜：自己画，省得为两个图标拉一整个 icons 依赖
+        // 画笔颜色先取出来，DrawScope 里不能调用 @Composable
+        val iconColor = ChatColors.Dim
         Canvas(modifier = Modifier.size(14.dp)) {
             val r = size.minDimension * 0.34f
             val c = Offset(r + 0.8f, r + 0.8f)
             drawCircle(
-                color = ChatColors.Dim,
+                color = iconColor,
                 radius = r,
                 center = c,
                 style = Stroke(width = 1.5f)
             )
             drawLine(
-                color = ChatColors.Dim,
+                color = iconColor,
                 start = Offset(c.x + r * 0.62f, c.y + r * 0.62f),
                 end = Offset(size.width - 0.4f, size.height - 0.4f),
                 strokeWidth = 1.5f

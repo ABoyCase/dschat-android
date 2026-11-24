@@ -32,6 +32,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -49,6 +50,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -57,6 +59,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import com.example.ai.R
 import com.example.ai.data.ConversationMeta
 import com.example.ai.data.ConversationExporter
 import com.example.ai.data.Efforts
@@ -150,6 +153,7 @@ fun ChatScreen(ctrl: ChatController) {
             Header(
                 ctrl = ctrl,
                 onMenu = { drawerOpen = true },
+                onNewChat = { ctrl.newChat() },
                 onSettings = { showKey = true },
                 onCost = { showCost = true }
             )
@@ -250,7 +254,7 @@ fun ChatScreen(ctrl: ChatController) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0xAA000000))
+                    .background(ChatColors.Scrim)
                     .pointerInput(Unit) {
                         detectTapGestures { drawerOpen = false }
                     }
@@ -320,6 +324,8 @@ fun ChatScreen(ctrl: ChatController) {
             holidays = ctrl.holidays,
             holidaySyncing = ctrl.holidaySyncing,
             holidayMsg = ctrl.holidayMsg,
+            theme = ctrl.theme,
+            onThemeChange = { ctrl.changeTheme(it) },
             onSyncHolidays = { ctrl.syncHolidays() },
             onDismiss = { showKey = false },
             onSaved = { newKey, cfg ->
@@ -365,6 +371,7 @@ fun ChatScreen(ctrl: ChatController) {
 private fun Header(
     ctrl: ChatController,
     onMenu: () -> Unit,
+    onNewChat: () -> Unit,
     onSettings: () -> Unit,
     onCost: () -> Unit
 ) {
@@ -373,7 +380,8 @@ private fun Header(
             .fillMaxWidth()
             .background(ChatColors.Panel)
             .statusBarsPadding()
-            .padding(horizontal = Dimens.ScreenPad, vertical = 8.dp)
+            // 右侧不留内边距，花费和齿轮才能真正顶到屏幕最右端
+            .padding(start = Dimens.ScreenPad, top = 8.dp, bottom = 8.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             // 抽屉开关
@@ -396,6 +404,27 @@ private fun Header(
             }
             Spacer(Modifier.width(6.dp))
 
+            // 新建对话：蓝底白加号；生成中变灰禁用，避免误触把当前回复掐断
+            val newEnabled = !ctrl.busy
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    .background(
+                        if (newEnabled) ChatColors.Accent else ChatColors.Panel2,
+                        RoundedCornerShape(9.dp)
+                    )
+                    .clickable(enabled = newEnabled) { onNewChat() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_add),
+                    contentDescription = if (newEnabled) "新建对话" else "正在生成，暂不可新建",
+                    tint = if (newEnabled) Color.White else ChatColors.Dim.copy(alpha = 0.45f),
+                    modifier = Modifier.size(17.dp)
+                )
+            }
+            Spacer(Modifier.width(9.dp))
+
             Box(
                 Modifier
                     .size(7.dp)
@@ -410,9 +439,10 @@ private fun Header(
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false)
+                // 必须 fill = true：fill = false 时标题没用完的配额会留在行尾，
+                // 反而把花费和齿轮推离右边缘
+                modifier = Modifier.weight(1f)
             )
-            Spacer(Modifier.weight(1f))
 
             Text(
                 text = if (ctrl.totals.turns == 0) "未花费" else Pricing.fmtMoney(ctrl.totals.cost),
@@ -424,12 +454,28 @@ private fun Header(
                     .padding(horizontal = 6.dp, vertical = 4.dp)
             )
 
-            IconText("⚙", onClick = onSettings)
+            // 设置：矢量齿轮，比字符 ⚙ 干净；右侧留 6dp，不贴着屏幕边缘
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clickable { onSettings() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_settings),
+                    contentDescription = "设置",
+                    tint = ChatColors.Dim,
+                    modifier = Modifier.size(19.dp)
+                )
+            }
+            Spacer(Modifier.width(6.dp))
         }
 
         Spacer(Modifier.height(8.dp))
 
         Row(
+            // 顶栏整体取消了右侧内边距，这排自己补回来，免得「缺 key」贴着边缘
+            modifier = Modifier.padding(end = Dimens.ScreenPad),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -452,18 +498,6 @@ private fun Header(
             }
         }
     }
-}
-
-@Composable
-private fun IconText(text: String, onClick: () -> Unit, small: Boolean = false) {
-    Text(
-        text = text,
-        color = ChatColors.Dim,
-        fontSize = if (small) 12.sp else 15.sp,
-        modifier = Modifier
-            .clickable { onClick() }
-            .padding(horizontal = 8.dp, vertical = 6.dp)
-    )
 }
 
 @Composable
@@ -539,7 +573,8 @@ internal fun Chip(
 ) {
     val fg = when {
         !enabled -> ChatColors.Dim.copy(alpha = 0.45f)
-        active -> ChatColors.Txt
+        // 选中态底色是品牌蓝，两套主题下都得用白字，浅色主题里用 Txt 会糊成一片
+        active -> Color.White
         else -> ChatColors.Accent2
     }
     Box(

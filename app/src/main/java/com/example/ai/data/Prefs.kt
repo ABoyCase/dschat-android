@@ -27,6 +27,11 @@ class Prefs(context: Context) {
         get() = sp.getBoolean(KEY_WEB, false)
         set(v) = sp.edit().putBoolean(KEY_WEB, v).apply()
 
+    /** 主题：dark / light / system。默认深色，保持老用户看到的样子 */
+    var theme: String
+        get() = sp.getString(KEY_THEME, ThemeMode.DARK) ?: ThemeMode.DARK
+        set(v) = sp.edit().putString(KEY_THEME, v).apply()
+
     /** 计费规则（单价、忙时倍率、忙时时段） */
     var billing: BillingConfig
         get() = BillingConfig.fromJson(sp.getString(KEY_BILLING, null))
@@ -57,5 +62,21 @@ class Prefs(context: Context) {
         const val KEY_WEB = "web_search"
         const val KEY_BILLING = "billing"
         const val KEY_HOLIDAY = "holidays"
+        const val KEY_THEME = "theme"
+    }
+}
+
+/** 主题模式。存的是字符串，方便以后加新选项不用改数据库 */
+object ThemeMode {
+    const val DARK = "dark"
+    const val LIGHT = "light"
+    const val SYSTEM = "system"
+
+    val ALL = listOf(DARK, LIGHT, SYSTEM)
+
+    fun label(v: String): String = when (v) {
+        LIGHT -> "浅色"
+        SYSTEM -> "跟随系统"
+        else -> "深色"
     }
 }

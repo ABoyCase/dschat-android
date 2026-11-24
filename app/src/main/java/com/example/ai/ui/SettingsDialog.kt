@@ -52,6 +52,7 @@ import com.example.ai.data.Models
 import com.example.ai.data.PeakRange
 import com.example.ai.data.PriceRule
 import com.example.ai.data.Pricing
+import com.example.ai.data.ThemeMode
 import com.example.ai.net.DeepSeekClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -67,6 +68,8 @@ fun SettingsDialog(
     holidays: HolidayData?,
     holidaySyncing: Boolean,
     holidayMsg: String,
+    theme: String,
+    onThemeChange: (String) -> Unit,
     onSyncHolidays: () -> Unit,
     onDismiss: () -> Unit,
     onSaved: (newKey: String?, billing: BillingConfig) -> Unit
@@ -180,6 +183,21 @@ fun SettingsDialog(
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 16.dp)
             ) {
+                // ---------- 外观 ----------
+                SectionTitle("外观")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ThemeMode.ALL.forEach { m ->
+                        Chip(
+                            text = ThemeMode.label(m),
+                            active = theme == m,
+                            onClick = { onThemeChange(m) }
+                        )
+                    }
+                    Spacer(Modifier.weight(1f))
+                }
+
+                Spacer(Modifier.height(18.dp))
+
                 // ---------- API Key ----------
                 SectionTitle("API Key")
                 FieldBox {
@@ -631,9 +649,12 @@ private fun PeakEditorDialog(
                     colors = TimePickerDefaults.colors(
                         clockDialColor = ChatColors.Panel2,
                         clockDialSelectedContentColor = Color.White,
+                        clockDialUnselectedContentColor = ChatColors.Txt,
                         selectorColor = ChatColors.Accent,
                         timeSelectorSelectedContainerColor = ChatColors.Accent,
-                        timeSelectorUnselectedContainerColor = ChatColors.Panel2
+                        timeSelectorSelectedContentColor = Color.White,
+                        timeSelectorUnselectedContainerColor = ChatColors.Panel2,
+                        timeSelectorUnselectedContentColor = ChatColors.Txt
                     )
                 )
             }
